@@ -11,9 +11,11 @@ When there are no todos, `#main` and `#footer` should be hidden.
 
 ![No todos](./images/no_todos.png)
 
-### ☑️ New todo
+### ✅ New todo
 
 New todos are entered in the input at the top of the app. The input element should be focused when the page is loaded, preferably by using the `autofocus` input attribute. Pressing Enter creates the todo, appends it to the todo list, and clears the input. Make sure to `.trim()` the input and then check that it's not empty before creating a new todo.
+
+![Add items](./images/add_items.png)
 
 ### ☑️ Mark all as complete
 
