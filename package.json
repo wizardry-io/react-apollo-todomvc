@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "apollo-client-preset": "^1.0.8",
+    "apollo-link-state": "^0.4.0",
+    "graphql": "^0.12.3",
+    "graphql-tag": "^2.6.1",
     "react": "^16.2.0",
+    "react-apollo": "^2.0.4",
     "react-dom": "^16.2.0",
     "react-scripts": "1.1.0",
     "todomvc-app-css": "^2.1.0"
