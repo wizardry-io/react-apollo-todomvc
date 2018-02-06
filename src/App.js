@@ -7,51 +7,7 @@ import gql from "graphql-tag";
 
 import "todomvc-app-css/index.css";
 
-const cache = new InMemoryCache();
-
 let nextTodoId = 0;
-
-const stateLink = withClientState({
-  cache,
-  resolvers: {
-    Mutation: {
-      addTodo: (_, { text }, { cache }) => {
-        const query = gql`
-          query GetTodos {
-            todos @client {
-              id
-              text
-            }
-          }
-        `;
-        const previous = cache.readQuery({ query });
-        const newTodo = {
-          id: nextTodoId,
-          text,
-          /**
-           * Resolvers must return an object with a __typename property
-           * [Source](https://www.apollographql.com/docs/link/links/state.html#resolver)
-           */
-          __typename: "TodoItem"
-        };
-        nextTodoId = nextTodoId + 1;
-        const data = {
-          todos: previous.todos.concat([newTodo])
-        };
-        cache.writeData({ data });
-        return newTodo;
-      }
-    }
-  },
-  defaults: {
-    todos: []
-  }
-});
-
-const client = new ApolloClient({
-  link: stateLink,
-  cache
-});
 
 class Header extends Component {
   state = { text: "" };
@@ -134,9 +90,57 @@ Main = graphql(
 )(Main);
 
 class App extends Component {
+  constructor() {
+    super();
+    const cache = new InMemoryCache();
+    const stateLink = withClientState({
+      cache,
+      resolvers: {
+        Mutation: {
+          addTodo: (_, { text }, { cache }) => {
+            const query = gql`
+              query GetTodos {
+                todos @client {
+                  id
+                  text
+                }
+              }
+            `;
+            const previous = cache.readQuery({ query });
+            const newTodo = {
+              id: nextTodoId,
+              text,
+              /**
+               * Resolvers must return an object with a __typename property
+               * [Source](https://www.apollographql.com/docs/link/links/state.html#resolver)
+               */
+              __typename: "TodoItem"
+            };
+            nextTodoId = nextTodoId + 1;
+            const data = {
+              todos: previous.todos.concat([newTodo])
+            };
+            cache.writeData({ data });
+            return newTodo;
+          }
+        }
+      },
+      defaults: {
+        todos: []
+      }
+    });
+    const client = new ApolloClient({
+      link: stateLink,
+      cache
+    });
+    this.state = {
+      cache,
+      client
+    };
+  }
   render() {
     return (
-      <ApolloProvider client={client}>
+      <ApolloProvider client={this.state.client}>
         <div className="todoapp">
           <Header />
           <Main />
