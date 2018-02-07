@@ -90,26 +90,25 @@ class Main extends Component {
   }
 }
 
-const todosQuery = graphql(
-  gql`
-    query {
+const getTodosQuery = gql`
+  query GetTodos {
       todos @client {
         id
         text
         completed
       }
     }
-  `,
-  {
+`;
+
+const withTodos = graphql(getTodosQuery, {
     props: ({ data: { todos } }) => {
       return {
         todos
       };
     }
-  }
-);
+});
 
-const completeAllTodosMutation = graphql(
+const withCompleteAllTodos = graphql(
   gql`
     mutation completeAllTodos {
       completeAllTodos @client
@@ -122,7 +121,7 @@ const completeAllTodosMutation = graphql(
   }
 );
 
-const toggleTodoMutation = graphql(
+const withToggleTodo = graphql(
   gql`
     mutation toggleTodo($id: Integer!) {
       toggleTodo(id: $id) @client
@@ -135,7 +134,7 @@ const toggleTodoMutation = graphql(
   }
 );
 
-const removeTodoMutation = graphql(
+const withRemoveTodo = graphql(
   gql`
     mutation removeTodo($id: Integer!) {
       removeTodo(id: $id) @client
@@ -148,26 +147,14 @@ const removeTodoMutation = graphql(
   }
 );
 
-Main = compose(
-  todosQuery,
-  completeAllTodosMutation,
-  toggleTodoMutation,
-  removeTodoMutation
-)(Main);
+Main = compose(withTodos, withCompleteAllTodos, withToggleTodo, withRemoveTodo)(
+  Main
+);
 
 class App extends Component {
   constructor() {
     super();
     const cache = new InMemoryCache();
-    const getTodosQuery = gql`
-      query GetTodos {
-        todos @client {
-          id
-          text
-          completed
-        }
-      }
-    `;
     const stateLink = withClientState({
       cache,
       resolvers: {
