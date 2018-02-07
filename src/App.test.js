@@ -70,6 +70,21 @@ it("should allow users to remove complete from all items", async () => {
   expect(app.find(".todo-list li.completed").length).toEqual(0);
 });
 
+it("should allow users to complete an item", async () => {
+  const app = mount(<App />);
+  app
+    .find(".new-todo")
+    .simulate("change", { target: { value: "Chase my own tail" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  await update(app);
+  app.find(".toggle").simulate("change");
+  await update(app);
+  expect(app.find(".todo-list li.completed").length).toEqual(1);
+  app.find(".toggle").simulate("change");
+  await update(app);
+  expect(app.find(".todo-list li.completed").length).toEqual(0);
+});
+
 function update(wrapper) {
   return (
     // Defer the test until the next tick

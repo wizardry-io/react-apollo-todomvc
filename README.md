@@ -23,7 +23,7 @@ This checkbox toggles all the todos to the same state as itself. Make sure to cl
 
 ![Mark all as complete](./images/mark_all_as_complete.png)
 
-### ☑️ Item
+### ✅ Item
 
 A todo item has three possible interactions:
 

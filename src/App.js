@@ -51,7 +51,7 @@ Header = graphql(
 
 class Main extends Component {
   render() {
-    const { todos, completeAllTodos } = this.props;
+    const { todos, completeAllTodos, toggleTodo } = this.props;
     return todos && todos.length ? (
       <section className="main">
         <input
@@ -68,7 +68,12 @@ class Main extends Component {
               className={todo.completed ? "completed" : undefined}
             >
               <div className="view">
-                <input className="toggle" type="checkbox" />
+                <input
+                  className="toggle"
+                  onChange={() => toggleTodo(todo.id)}
+                  checked={todo.completed}
+                  type="checkbox"
+                />
                 <label>{todo.text}</label>
                 <button className="destroy" />
               </div>
@@ -109,6 +114,19 @@ Main = graphql(
   {
     props: ({ mutate }) => ({
       completeAllTodos: mutate
+    })
+  }
+)(Main);
+
+Main = graphql(
+  gql`
+    mutation toggleTodo($id: Integer!) {
+      toggleTodo(id: $id) @client
+    }
+  `,
+  {
+    props: ({ mutate }) => ({
+      toggleTodo: id => mutate({ variables: { id } })
     })
   }
 )(Main);
@@ -159,6 +177,22 @@ class App extends Component {
                 ...todo,
                 completed: areAllCompleted ? false : true
               }))
+            };
+            cache.writeData({ data });
+            return null;
+          },
+          toggleTodo: (_, { id }, { cache }) => {
+            const previous = cache.readQuery({ query: getTodosQuery });
+            const data = {
+              todos: previous.todos.map(todo => {
+                if (todo.id !== id) {
+                  return todo;
+                }
+                return {
+                  ...todo,
+                  completed: !todo.completed
+                };
+              })
             };
             cache.writeData({ data });
             return null;
