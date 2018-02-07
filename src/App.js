@@ -51,7 +51,7 @@ Header = graphql(
 
 class Main extends Component {
   render() {
-    const { todos, completeAllTodos, toggleTodo } = this.props;
+    const { todos, completeAllTodos, toggleTodo, removeTodo } = this.props;
     return todos && todos.length ? (
       <section className="main">
         <input
@@ -75,7 +75,10 @@ class Main extends Component {
                   type="checkbox"
                 />
                 <label>{todo.text}</label>
-                <button className="destroy" />
+                <button
+                  onClick={() => removeTodo(todo.id)}
+                  className="destroy"
+                />
               </div>
               <input className="edit" onChange={() => {}} value={todo.text} />
             </li>
@@ -127,6 +130,19 @@ Main = graphql(
   {
     props: ({ mutate }) => ({
       toggleTodo: id => mutate({ variables: { id } })
+    })
+  }
+)(Main);
+
+Main = graphql(
+  gql`
+    mutation removeTodo($id: Integer!) {
+      removeTodo(id: $id) @client
+    }
+  `,
+  {
+    props: ({ mutate }) => ({
+      removeTodo: id => mutate({ variables: { id } })
     })
   }
 )(Main);
@@ -193,6 +209,14 @@ class App extends Component {
                   completed: !todo.completed
                 };
               })
+            };
+            cache.writeData({ data });
+            return null;
+          },
+          removeTodo: (_, { id }, { cache }) => {
+            const previous = cache.readQuery({ query: getTodosQuery });
+            const data = {
+              todos: previous.todos.filter(todo => todo.id !== id)
             };
             cache.writeData({ data });
             return null;
