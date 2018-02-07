@@ -18,19 +18,14 @@ it("should hide `#main` and `#footer` when there are no todos", () => {
   expect(app.find(".footer").exists()).toEqual(false);
 });
 
-it("should allow the user to add items", done => {
+it("should allow the user to add items", async () => {
   const app = mount(<App />);
   app
     .find(".new-todo")
     .simulate("change", { target: { value: "Do the laundry" } });
   app.find(".new-todo").simulate("keypress", { key: "Enter" });
-  // Defer the test until the next tick
-  setImmediate(() => {
-    // Force a re-render
-    app.update();
-    expect(app.find(".todo-list li").length).toEqual(1);
-    done();
-  });
+  await update(app);
+  expect(app.find(".todo-list li").length).toEqual(1);
 });
 
 it("should clear the text input when the user adds an item", () => {
@@ -42,7 +37,7 @@ it("should clear the text input when the user adds an item", () => {
   expect(app.find(".new-todo").props().value).toEqual("");
 });
 
-it("should allow users to complete all items", done => {
+it("should allow users to complete all items", async () => {
   const app = mount(<App />);
   app
     .find(".new-todo")
@@ -53,14 +48,11 @@ it("should allow users to complete all items", done => {
     .simulate("change", { target: { value: "Bark at mailman" } });
   app.find(".new-todo").simulate("keypress", { key: "Enter" });
   app.find(".toggle-all").simulate("change", { target: { value: true } });
-  setImmediate(() => {
-    app.update();
-    expect(app.find(".todo-list li.completed").length).toEqual(2);
-    done();
-  });
+  await update(app);
+  expect(app.find(".todo-list li.completed").length).toEqual(2);
 });
 
-it("should allow users to remove complete from all items", done => {
+it("should allow users to remove complete from all items", async () => {
   const app = mount(<App />);
   app
     .find(".new-todo")
@@ -71,14 +63,18 @@ it("should allow users to remove complete from all items", done => {
     .simulate("change", { target: { value: "Bark at mailman" } });
   app.find(".new-todo").simulate("keypress", { key: "Enter" });
   app.find(".toggle-all").simulate("change");
-  setImmediate(() => {
-    app.update();
-    expect(app.find(".todo-list li.completed").length).toEqual(2);
-    app.find(".toggle-all").simulate("change");
-    setImmediate(() => {
-      app.update();
-      expect(app.find(".todo-list li.completed").length).toEqual(0);
-      done();
-    });
-  });
+  await update(app);
+  expect(app.find(".todo-list li.completed").length).toEqual(2);
+  app.find(".toggle-all").simulate("change");
+  await update(app);
+  expect(app.find(".todo-list li.completed").length).toEqual(0);
 });
+
+function update(wrapper) {
+  return (
+    // Defer the test until the next tick
+    new Promise(setImmediate)
+      // Force a re-render
+      .then(() => wrapper.update())
+  );
+}
