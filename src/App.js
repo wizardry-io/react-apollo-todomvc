@@ -4,6 +4,7 @@ import { InMemoryCache } from "apollo-cache-inmemory";
 import { withClientState } from "apollo-link-state";
 import { ApolloProvider, graphql } from "react-apollo";
 import gql from "graphql-tag";
+import compose from "lodash/flowRight";
 
 import "todomvc-app-css/index.css";
 import "./App.css";
@@ -89,7 +90,7 @@ class Main extends Component {
   }
 }
 
-Main = graphql(
+const todosQuery = graphql(
   gql`
     query {
       todos @client {
@@ -106,9 +107,9 @@ Main = graphql(
       };
     }
   }
-)(Main);
+);
 
-Main = graphql(
+const completeAllTodosMutation = graphql(
   gql`
     mutation completeAllTodos {
       completeAllTodos @client
@@ -119,9 +120,9 @@ Main = graphql(
       completeAllTodos: mutate
     })
   }
-)(Main);
+);
 
-Main = graphql(
+const toggleTodoMutation = graphql(
   gql`
     mutation toggleTodo($id: Integer!) {
       toggleTodo(id: $id) @client
@@ -132,9 +133,9 @@ Main = graphql(
       toggleTodo: id => mutate({ variables: { id } })
     })
   }
-)(Main);
+);
 
-Main = graphql(
+const removeTodoMutation = graphql(
   gql`
     mutation removeTodo($id: Integer!) {
       removeTodo(id: $id) @client
@@ -145,6 +146,13 @@ Main = graphql(
       removeTodo: id => mutate({ variables: { id } })
     })
   }
+);
+
+Main = compose(
+  todosQuery,
+  completeAllTodosMutation,
+  toggleTodoMutation,
+  removeTodoMutation
 )(Main);
 
 class App extends Component {
