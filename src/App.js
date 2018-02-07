@@ -6,6 +6,7 @@ import { ApolloProvider, graphql } from "react-apollo";
 import gql from "graphql-tag";
 
 import "todomvc-app-css/index.css";
+import "./App.css";
 
 let nextTodoId = 0;
 
@@ -50,13 +51,22 @@ Header = graphql(
 
 class Main extends Component {
   render() {
-    const { todos } = this.props;
+    const { todos, completeAllTodos } = this.props;
     return todos && todos.length ? (
       <section className="main">
-        <input className="toggle-all" type="checkbox" />
+        <input
+          className="toggle-all"
+          type="checkbox"
+          onChange={completeAllTodos}
+          checked={false}
+        />
+        <label htmlFor="toggle-all">Mark all as complete</label>
         <ul className="todo-list">
           {todos.map(todo => (
-            <li key={todo.id}>
+            <li
+              key={todo.id}
+              className={todo.completed ? "completed" : undefined}
+            >
               <div className="view">
                 <input className="toggle" type="checkbox" />
                 <label>{todo.text}</label>
@@ -77,6 +87,7 @@ Main = graphql(
       todos @client {
         id
         text
+        completed
       }
     }
   `,
@@ -89,27 +100,42 @@ Main = graphql(
   }
 )(Main);
 
+Main = graphql(
+  gql`
+    mutation completeAllTodos {
+      completeAllTodos @client
+    }
+  `,
+  {
+    props: ({ mutate }) => ({
+      completeAllTodos: mutate
+    })
+  }
+)(Main);
+
 class App extends Component {
   constructor() {
     super();
     const cache = new InMemoryCache();
+    const getTodosQuery = gql`
+      query GetTodos {
+        todos @client {
+          id
+          text
+          completed
+        }
+      }
+    `;
     const stateLink = withClientState({
       cache,
       resolvers: {
         Mutation: {
           addTodo: (_, { text }, { cache }) => {
-            const query = gql`
-              query GetTodos {
-                todos @client {
-                  id
-                  text
-                }
-              }
-            `;
-            const previous = cache.readQuery({ query });
+            const previous = cache.readQuery({ query: getTodosQuery });
             const newTodo = {
               id: nextTodoId,
               text,
+              completed: false,
               /**
                * Resolvers must return an object with a __typename property
                * [Source](https://www.apollographql.com/docs/link/links/state.html#resolver)
@@ -122,6 +148,20 @@ class App extends Component {
             };
             cache.writeData({ data });
             return newTodo;
+          },
+          completeAllTodos: (_, variables, { cache }) => {
+            const previous = cache.readQuery({ query: getTodosQuery });
+            const areAllCompleted = previous.todos.every(
+              todo => todo.completed
+            );
+            const data = {
+              todos: previous.todos.map(todo => ({
+                ...todo,
+                completed: areAllCompleted ? false : true
+              }))
+            };
+            cache.writeData({ data });
+            return null;
           }
         }
       },

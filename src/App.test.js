@@ -41,3 +41,44 @@ it("should clear the text input when the user adds an item", () => {
   app.find(".new-todo").simulate("keypress", { key: "Enter" });
   expect(app.find(".new-todo").props().value).toEqual("");
 });
+
+it("should allow users to complete all items", done => {
+  const app = mount(<App />);
+  app
+    .find(".new-todo")
+    .simulate("change", { target: { value: "Sleep like a dog" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  app
+    .find(".new-todo")
+    .simulate("change", { target: { value: "Bark at mailman" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  app.find(".toggle-all").simulate("change", { target: { value: true } });
+  setImmediate(() => {
+    app.update();
+    expect(app.find(".todo-list li.completed").length).toEqual(2);
+    done();
+  });
+});
+
+it("should allow users to remove complete from all items", done => {
+  const app = mount(<App />);
+  app
+    .find(".new-todo")
+    .simulate("change", { target: { value: "Sleep like a dog" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  app
+    .find(".new-todo")
+    .simulate("change", { target: { value: "Bark at mailman" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  app.find(".toggle-all").simulate("change");
+  setImmediate(() => {
+    app.update();
+    expect(app.find(".todo-list li.completed").length).toEqual(2);
+    app.find(".toggle-all").simulate("change");
+    setImmediate(() => {
+      app.update();
+      expect(app.find(".todo-list li.completed").length).toEqual(0);
+      done();
+    });
+  });
+});
