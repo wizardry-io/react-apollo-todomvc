@@ -5,11 +5,11 @@ import { withClientState } from "apollo-link-state";
 import { ApolloProvider, graphql } from "react-apollo";
 import gql from "graphql-tag";
 import compose from "lodash/flowRight";
+import { persistCache } from "apollo-cache-persist";
+import uuid from "uuid/v4";
 
 import "todomvc-app-css/index.css";
 import "./App.css";
-
-let nextTodoId = 0;
 
 class Header extends Component {
   state = { text: "" };
@@ -92,20 +92,20 @@ class Main extends Component {
 
 const getTodosQuery = gql`
   query GetTodos {
-      todos @client {
-        id
-        text
-        completed
-      }
+    todos @client {
+      id
+      text
+      completed
     }
+  }
 `;
 
 const withTodos = graphql(getTodosQuery, {
-    props: ({ data: { todos } }) => {
-      return {
-        todos
-      };
-    }
+  props: ({ data: { todos } }) => {
+    return {
+      todos
+    };
+  }
 });
 
 const withCompleteAllTodos = graphql(
@@ -162,7 +162,7 @@ class App extends Component {
           addTodo: (_, { text }, { cache }) => {
             const previous = cache.readQuery({ query: getTodosQuery });
             const newTodo = {
-              id: nextTodoId,
+              id: uuid(),
               text,
               completed: false,
               /**
@@ -171,7 +171,6 @@ class App extends Component {
                */
               __typename: "TodoItem"
             };
-            nextTodoId = nextTodoId + 1;
             const data = {
               todos: previous.todos.concat([newTodo])
             };
@@ -225,6 +224,10 @@ class App extends Component {
     const client = new ApolloClient({
       link: stateLink,
       cache
+    });
+    persistCache({
+      cache,
+      storage: window ? window.localStorage : global.localStorage
     });
     this.state = {
       cache,

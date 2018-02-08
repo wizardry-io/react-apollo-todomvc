@@ -90,11 +90,29 @@ it("should allow users to remove an item", async () => {
   app
     .find(".new-todo")
     .simulate("change", { target: { value: "Chase my own tail" } });
-    app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
   await update(app);
   app.find(".destroy").simulate("click");
   await update(app);
   expect(app.find(".todo-list li").length).toEqual(0);
+});
+
+it("should persist todos to local storage", async () => {
+  jest.useFakeTimers();
+  const app = mount(<App />);
+  app
+  .find(".new-todo")
+  .simulate("change", { target: { value: "Chase my own tail" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  await update(app);
+  const apolloState = app.state().client.extract();
+  // Fast forward 1 second to wait for persist
+  jest.runTimersToTime(1000);
+  app.unmount();
+  app.mount();
+  await update(app);
+  // Verify that apollo state looks the same as when there was one item
+  expect(app.state().client.extract()).toEqual(apolloState);
 });
 
 function update(wrapper) {
