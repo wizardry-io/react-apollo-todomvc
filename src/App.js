@@ -5,6 +5,7 @@ import { withClientState } from "apollo-link-state";
 import { ApolloProvider, graphql } from "react-apollo";
 import gql from "graphql-tag";
 import compose from "lodash/flowRight";
+import { HashRouter as Router, withRouter, Link } from "react-router-dom";
 
 import "todomvc-app-css/index.css";
 import "./App.css";
@@ -52,7 +53,13 @@ Header = graphql(
 
 class Main extends Component {
   render() {
-    const { todos, completeAllTodos, toggleTodo, removeTodo } = this.props;
+    const {
+      todos,
+      completeAllTodos,
+      toggleTodo,
+      removeTodo,
+      location
+    } = this.props;
     return todos && todos.length ? (
       <section className="main">
         <input
@@ -63,27 +70,37 @@ class Main extends Component {
         />
         <label htmlFor="toggle-all">Mark all as complete</label>
         <ul className="todo-list">
-          {todos.map(todo => (
-            <li
-              key={todo.id}
-              className={todo.completed ? "completed" : undefined}
-            >
-              <div className="view">
-                <input
-                  className="toggle"
-                  onChange={() => toggleTodo(todo.id)}
-                  checked={todo.completed}
-                  type="checkbox"
-                />
-                <label>{todo.text}</label>
-                <button
-                  onClick={() => removeTodo(todo.id)}
-                  className="destroy"
-                />
-              </div>
-              <input className="edit" onChange={() => {}} value={todo.text} />
-            </li>
-          ))}
+          {todos
+            .filter(todo => {
+              if (location.pathname === "/completed") {
+                return todo.completed;
+              }
+              if (location.pathname === "/active") {
+                return !todo.completed;
+              }
+              return true;
+            })
+            .map(todo => (
+              <li
+                key={todo.id}
+                className={todo.completed ? "completed" : undefined}
+              >
+                <div className="view">
+                  <input
+                    className="toggle"
+                    onChange={() => toggleTodo(todo.id)}
+                    checked={todo.completed}
+                    type="checkbox"
+                  />
+                  <label>{todo.text}</label>
+                  <button
+                    onClick={() => removeTodo(todo.id)}
+                    className="destroy"
+                  />
+                </div>
+                <input className="edit" onChange={() => {}} value={todo.text} />
+              </li>
+            ))}
         </ul>
       </section>
     ) : null;
@@ -92,20 +109,20 @@ class Main extends Component {
 
 const getTodosQuery = gql`
   query GetTodos {
-      todos @client {
-        id
-        text
-        completed
-      }
+    todos @client {
+      id
+      text
+      completed
     }
+  }
 `;
 
 const withTodos = graphql(getTodosQuery, {
-    props: ({ data: { todos } }) => {
-      return {
-        todos
-      };
-    }
+  props: ({ data: { todos } }) => {
+    return {
+      todos
+    };
+  }
 });
 
 const withCompleteAllTodos = graphql(
@@ -147,9 +164,59 @@ const withRemoveTodo = graphql(
   }
 );
 
-Main = compose(withTodos, withCompleteAllTodos, withToggleTodo, withRemoveTodo)(
-  Main
-);
+Main = compose(
+  withRouter,
+  withTodos,
+  withCompleteAllTodos,
+  withToggleTodo,
+  withRemoveTodo
+)(Main);
+
+class Footer extends Component {
+  render() {
+    const { location, todos } = this.props;
+    return todos.length ? (
+      <footer className="footer">
+        <span className="todo-count">
+          <strong>0</strong> item left
+        </span>
+        <ul className="filters">
+          <li>
+            <Link
+              className={location.pathname === "/" ? "selected" : undefined}
+              to="/"
+            >
+              All
+            </Link>
+          </li>
+          <li>
+            <Link
+              className={
+                location.pathname === "/active" ? "selected" : undefined
+              }
+              to="/active"
+            >
+              Active
+            </Link>
+          </li>
+          <li>
+            <Link
+              className={
+                location.pathname === "/completed" ? "completed" : undefined
+              }
+              to="/completed"
+            >
+              Completed
+            </Link>
+          </li>
+        </ul>
+        <button className="clear-completed">Clear completed</button>
+      </footer>
+    ) : null;
+  }
+}
+
+Footer = compose(withRouter, withTodos)(Footer);
 
 class App extends Component {
   constructor() {
@@ -233,12 +300,15 @@ class App extends Component {
   }
   render() {
     return (
-      <ApolloProvider client={this.state.client}>
-        <div className="todoapp">
-          <Header />
-          <Main />
-        </div>
-      </ApolloProvider>
+      <Router>
+        <ApolloProvider client={this.state.client}>
+          <div className="todoapp">
+            <Header />
+            <Main />
+            <Footer />
+          </div>
+        </ApolloProvider>
+      </Router>
     );
   }
 }

@@ -90,11 +90,36 @@ it("should allow users to remove an item", async () => {
   app
     .find(".new-todo")
     .simulate("change", { target: { value: "Chase my own tail" } });
-    app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
   await update(app);
   app.find(".destroy").simulate("click");
   await update(app);
   expect(app.find(".todo-list li").length).toEqual(0);
+});
+
+it("should only show active todos on /active", async () => {
+  const app = mount(<App />);
+  app
+    .find(".new-todo")
+    .simulate("change", { target: { value: "Be the best friend" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  await update(app);
+  app.find(".toggle").simulate("change");
+  await update(app);
+  app
+    .find(".new-todo")
+    .simulate("change", { target: { value: "Chase my own tail" } });
+  app.find(".new-todo").simulate("keypress", { key: "Enter" });
+  /**
+   * Added { button: 0 } to simulate() because otherwise the test fails because <Link /> checks that event.button === 0.
+   * Source: https://github.com/airbnb/enzyme/issues/516
+   */
+  app.find('a[href="/active"]').simulate("click", { button: 0 });
+  await update(app);
+  expect(app.find(".todo-list li").length).toEqual(1);
+  app.find('a[href="/"]').simulate("click", { button: 0 });
+  await update(app);
+  expect(app.find(".todo-list li").length).toEqual(2);
 });
 
 function update(wrapper) {
