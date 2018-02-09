@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import { ApolloClient } from "apollo-client";
 import { InMemoryCache } from "apollo-cache-inmemory";
-import { withClientState } from "apollo-link-state";
+import { HttpLink } from "apollo-link-http";
 import { ApolloProvider, graphql } from "react-apollo";
 import gql from "graphql-tag";
 import compose from "lodash/flowRight";
@@ -9,8 +9,6 @@ import { HashRouter as Router, withRouter, Link } from "react-router-dom";
 
 import "todomvc-app-css/index.css";
 import "./App.css";
-
-let nextTodoId = 0;
 
 class Header extends Component {
   state = { text: "" };
@@ -38,24 +36,33 @@ class Header extends Component {
   }
 }
 
-Header = graphql(
-  gql`
-    mutation addTodo($text: String!) {
-      addTodo(text: $text) @client
+export const createTodoMutation = gql`
+  mutation createTodo($data: TodoCreateInput!) {
+    createTodo(data: $data) {
+      id
+      text
+      completed
     }
-  `,
-  {
-    props: ({ mutate }) => ({
-      onNewTodo: ({ text }) => mutate({ variables: { text } })
-    })
   }
-)(Header);
+`;
+
+Header = graphql(createTodoMutation, {
+  props: ({ mutate }) => ({
+    onNewTodo: ({ text }) => {
+      mutate({
+        variables: { data: { text, completed: false } },
+        refetchQueries: [{ query: getTodosQuery }]
+      });
+    }
+  })
+})(Header);
 
 class Main extends Component {
   render() {
     const {
       todos,
       completeAllTodos,
+      uncompleteAllTodos,
       toggleTodo,
       removeTodo,
       location
@@ -65,7 +72,11 @@ class Main extends Component {
         <input
           className="toggle-all"
           type="checkbox"
-          onChange={completeAllTodos}
+          onChange={() =>
+            todos.some(todo => todo.completed === false)
+              ? completeAllTodos()
+              : uncompleteAllTodos()
+          }
           checked={false}
         />
         <label htmlFor="toggle-all">Mark all as complete</label>
@@ -88,7 +99,9 @@ class Main extends Component {
                 <div className="view">
                   <input
                     className="toggle"
-                    onChange={() => toggleTodo(todo.id)}
+                    onChange={() =>
+                      toggleTodo({ id: todo.id, completed: !todo.completed })
+                    }
                     checked={todo.completed}
                     type="checkbox"
                   />
@@ -107,9 +120,9 @@ class Main extends Component {
   }
 }
 
-const getTodosQuery = gql`
+export const getTodosQuery = gql`
   query GetTodos {
-    todos @client {
+    todoes {
       id
       text
       completed
@@ -118,51 +131,80 @@ const getTodosQuery = gql`
 `;
 
 const withTodos = graphql(getTodosQuery, {
-  props: ({ data: { todos } }) => {
+  props: ({ data: { todoes } }) => {
     return {
-      todos
+      todos: todoes || []
     };
   }
 });
 
-const withCompleteAllTodos = graphql(
-  gql`
-    mutation completeAllTodos {
-      completeAllTodos @client
+export const completeAllTodosMutation = gql`
+  mutation updateManyTodoes($data: TodoUpdateInput!, $where: TodoWhereInput!) {
+    updateManyTodoes(data: $data, where: $where) {
+      count
     }
-  `,
-  {
-    props: ({ mutate }) => ({
-      completeAllTodos: mutate
-    })
   }
-);
+`;
 
-const withToggleTodo = graphql(
-  gql`
-    mutation toggleTodo($id: Integer!) {
-      toggleTodo(id: $id) @client
-    }
-  `,
-  {
-    props: ({ mutate }) => ({
-      toggleTodo: id => mutate({ variables: { id } })
-    })
-  }
-);
+const withCompleteAllTodos = graphql(completeAllTodosMutation, {
+  props: ({ mutate }) => ({
+    completeAllTodos: () =>
+      mutate({
+        variables: {
+          data: { completed: true },
+          where: { completed: false }
+        },
+        refetchQueries: [{ query: getTodosQuery }]
+      }),
+    uncompleteAllTodos: () =>
+      mutate({
+        variables: {
+          data: { completed: false },
+          where: { completed: true }
+        },
+        refetchQueries: [{ query: getTodosQuery }]
+      })
+  })
+});
 
-const withRemoveTodo = graphql(
-  gql`
-    mutation removeTodo($id: Integer!) {
-      removeTodo(id: $id) @client
+export const completeTodoMutation = gql`
+  mutation updateTodo($data: TodoUpdateInput!, $where: TodoWhereUniqueInput!) {
+    updateTodo(data: $data, where: $where) {
+      id
+      text
+      completed
     }
-  `,
-  {
-    props: ({ mutate }) => ({
-      removeTodo: id => mutate({ variables: { id } })
-    })
   }
-);
+`;
+
+const withToggleTodo = graphql(completeTodoMutation, {
+  props: ({ mutate }) => ({
+    toggleTodo: ({ id, completed }) =>
+      mutate({
+        variables: { where: { id }, data: { completed } },
+        refetchQueries: [{ query: getTodosQuery }]
+      })
+  })
+});
+
+export const removeTodoMutation = gql`
+  mutation deleteTodo($where: TodoWhereUniqueInput!) {
+    deleteTodo(where: $where) {
+      id
+    }
+  }
+`;
+
+const withRemoveTodo = graphql(removeTodoMutation, {
+  props: ({ mutate }) => ({
+    removeTodo: id => {
+      mutate({
+        variables: { where: { id } },
+        refetchQueries: [{ query: getTodosQuery }]
+      });
+    }
+  })
+});
 
 Main = compose(
   withRouter,
@@ -221,76 +263,11 @@ Footer = compose(withRouter, withTodos)(Footer);
 class App extends Component {
   constructor() {
     super();
-    const cache = new InMemoryCache();
-    const stateLink = withClientState({
-      cache,
-      resolvers: {
-        Mutation: {
-          addTodo: (_, { text }, { cache }) => {
-            const previous = cache.readQuery({ query: getTodosQuery });
-            const newTodo = {
-              id: nextTodoId,
-              text,
-              completed: false,
-              /**
-               * Resolvers must return an object with a __typename property
-               * [Source](https://www.apollographql.com/docs/link/links/state.html#resolver)
-               */
-              __typename: "TodoItem"
-            };
-            nextTodoId = nextTodoId + 1;
-            const data = {
-              todos: previous.todos.concat([newTodo])
-            };
-            cache.writeData({ data });
-            return newTodo;
-          },
-          completeAllTodos: (_, variables, { cache }) => {
-            const previous = cache.readQuery({ query: getTodosQuery });
-            const areAllCompleted = previous.todos.every(
-              todo => todo.completed
-            );
-            const data = {
-              todos: previous.todos.map(todo => ({
-                ...todo,
-                completed: areAllCompleted ? false : true
-              }))
-            };
-            cache.writeData({ data });
-            return null;
-          },
-          toggleTodo: (_, { id }, { cache }) => {
-            const previous = cache.readQuery({ query: getTodosQuery });
-            const data = {
-              todos: previous.todos.map(todo => {
-                if (todo.id !== id) {
-                  return todo;
-                }
-                return {
-                  ...todo,
-                  completed: !todo.completed
-                };
-              })
-            };
-            cache.writeData({ data });
-            return null;
-          },
-          removeTodo: (_, { id }, { cache }) => {
-            const previous = cache.readQuery({ query: getTodosQuery });
-            const data = {
-              todos: previous.todos.filter(todo => todo.id !== id)
-            };
-            cache.writeData({ data });
-            return null;
-          }
-        }
-      },
-      defaults: {
-        todos: []
-      }
-    });
+    const cache = new InMemoryCache({ dataIdFromObject: ({ key }) => key });
     const client = new ApolloClient({
-      link: stateLink,
+      link: new HttpLink({
+        uri: process.env.REACT_APP_GRAPHQL_API_URL
+      }),
       cache
     });
     this.state = {
